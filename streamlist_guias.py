@@ -47,7 +47,8 @@ if uploaded_xlsx and uploaded_csv:
             'utm_campaign', 'nombre_webinar', 'nombre_curso', 'locate_ciudad','locate_cp'
         ]
         empresas = empresas[selected_columns]
-
+        # 👇 Aquí añadimos el prefijo a la columna 'id'
+        empresas['id'] = 'azercaguias-' + empresas['id'].astype(str)
         # Filtrado por nombre_curso
         empresas = empresas[empresas['nombre_curso'] != 'Ninguno'].copy()
         empresas.drop(columns=['nombre_curso'], inplace=True)
@@ -97,5 +98,6 @@ if uploaded_xlsx and uploaded_csv:
             file_name="resultado_guias_azerca.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
+
 
 
