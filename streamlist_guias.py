@@ -43,8 +43,8 @@ if uploaded_xlsx and uploaded_csv:
 
         # --- Procesamiento del DataFrame ---
         selected_columns = [
-            'id','fecha',  'name', 'surname', 'email', 'teléfono',
-            'utm_campaign', 'nombre_webinar', 'nombre_curso', 'localte_ciudad','locate_cp'
+            'id','fecha',  'name', 'surname', 'email', 'phone',
+            'utm_campaign', 'nombre_webinar', 'nombre_curso', 'locate_ciudad','locate_cp'
         ]
         empresas = empresas[selected_columns]
 
@@ -97,4 +97,5 @@ if uploaded_xlsx and uploaded_csv:
             file_name="resultado_guias_azerca.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
+
 
