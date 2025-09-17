@@ -4,6 +4,7 @@ import os
 from datetime import datetime
 from io import BytesIO
 
+# --- Configuración de la página ---
 st.set_page_config(page_title="Filtrado de Leads", layout="centered")
 
 # --- Título ---
@@ -30,26 +31,35 @@ if uploaded_xlsx and uploaded_csv:
         empresas['fecha'] = empresas['fecha'].dt.strftime('%d/%m/%Y %H:%M')
         empresas['fecha_dt'] = pd.to_datetime(empresas['fecha'], format='%d/%m/%Y %H:%M')
 
-        # Filtrar
+        # Filtrar por rango de fechas
         fecha_filtro = datetime.combine(fecha_inicio, datetime.min.time())
         hoy = datetime.now()
 
         filas_antes = empresas.shape[0]
-        empresas = empresas[(empresas['fecha_dt'] >= fecha_filtro) & (empresas['fecha_dt'] <= hoy)].drop(columns='fecha_dt')
+        empresas = empresas[
+            (empresas['fecha_dt'] >= fecha_filtro) & (empresas['fecha_dt'] <= hoy)
+        ].drop(columns='fecha_dt')
         filas_despues = empresas.shape[0]
         filas_eliminadas = filas_antes - filas_despues
 
-        st.success(f"✅ Filtrado completado.\n\nConservadas: {filas_despues} filas.\nEliminadas: {filas_eliminadas}.")
+        st.success(
+            f"✅ Filtrado completado.\n\n"
+            f"Conservadas: {filas_despues} filas.\n"
+            f"Eliminadas: {filas_eliminadas}."
+        )
 
         # --- Procesamiento del DataFrame ---
         selected_columns = [
-            'id','fecha',  'name', 'surname', 'email', 'phone',
-            'utm_campaign', 'nombre_webinar', 'nombre_curso', 'locate_ciudad','locate_cp'
+            'id', 'fecha', 'name', 'surname', 'email', 'phone',
+            'utm_campaign', 'nombre_webinar', 'nombre_curso',
+            'locate_ciudad', 'locate_cp'
         ]
         empresas = empresas[selected_columns]
-        # 👇 Aquí añadimos el prefijo a la columna 'id'
+
+        # 👇 Añadir prefijo a la columna 'id'
         empresas['id'] = 'azercaguias-' + empresas['id'].astype(str)
-        # Filtrado por nombre_curso
+
+        # Filtrar registros inválidos
         empresas = empresas[empresas['nombre_curso'] != 'Ninguno'].copy()
         empresas.drop(columns=['nombre_curso'], inplace=True)
 
@@ -76,18 +86,29 @@ if uploaded_xlsx and uploaded_csv:
         })
 
         # Normalización de CP
-        df_merged = pd.merge(empresas, df_cp[['plvd_name']], left_on='cp', right_on='plvd_name', how='left', indicator=True)
-        df_merged['cp_normalizado'] = df_merged.apply(
-            lambda row: row['cp'] if row['_merge'] == 'both' else f"{str(row['cp'])[:2]}000", axis=1
+        df_merged = pd.merge(
+            empresas,
+            df_cp[['plvd_name']],
+            left_on='cp',
+            right_on='plvd_name',
+            how='left',
+            indicator=True
         )
+
+        df_merged['cp_normalizado'] = df_merged.apply(
+            lambda row: row['cp'] if row['_merge'] == 'both'
+            else f"{str(row['cp'])[:2]}000",
+            axis=1
+        )
+
         df_merged = df_merged.drop(columns=['plvd_name', '_merge'])
         df_final = df_merged.drop(columns=['nombreapellidos', 'locate_cp', 'cp'])
 
-        # Mostrar muestra
+        # --- Vista previa ---
         st.subheader("3. Vista previa del resultado")
         st.dataframe(df_final.head())
 
-        # Descargar resultado
+        # --- Descargar resultado ---
         output = BytesIO()
         df_final.to_excel(output, index=False, engine='openpyxl')
         output.seek(0)
@@ -98,5 +119,3 @@ if uploaded_xlsx and uploaded_csv:
             file_name="resultado_guias_azerca.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
-
-
