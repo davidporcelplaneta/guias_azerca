@@ -157,7 +157,7 @@ if uploaded_xlsx and uploaded_csv:
             if empresas.shape[0] > 0:
                 empresas = deduplicar_por(empresas, key_col='telefono', date_col='fecha_captacion')
         elim_tel_post = empresas.shape[0]
-        st.info(f"📱 Paso 1 (teléfono): filas tras el paso = {elim_tel_post} (eliminadas en el paso: {elim_tel_prev - elim_tel_post}).")
+        #st.info(f"📱 Paso 1 (teléfono): filas tras el paso = {elim_tel_post} (eliminadas en el paso: {elim_tel_prev - elim_tel_post}).")
 
         # --- Paso 2: Deduplicación por email ---
         elim_mail_prev = empresas.shape[0]
@@ -167,7 +167,7 @@ if uploaded_xlsx and uploaded_csv:
             if empresas.shape[0] > 0:
                 empresas = deduplicar_por(empresas, key_col='email', date_col='fecha_captacion')
         elim_mail_post = empresas.shape[0]
-        st.info(f"✉️ Paso 2 (email): filas tras el paso = {elim_mail_post} (eliminadas en el paso: {elim_mail_prev - elim_mail_post}).")
+        s#t.info(f"✉️ Paso 2 (email): filas tras el paso = {elim_mail_post} (eliminadas en el paso: {elim_mail_prev - elim_mail_post}).")
 
         # --- Normalización de CP con tabla de referencia ---
         if 'plvd_name' in df_cp.columns:
@@ -206,10 +206,11 @@ if uploaded_xlsx and uploaded_csv:
         output.seek(0)
 
         st.download_button(
-            label="📥 Descargar Excel procesado (dedupe por teléfono ➜ email)",
+            label="📥 Descargar Excel procesado",
             data=output,
             file_name="resultado_guias_azerca.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
+
 
 
