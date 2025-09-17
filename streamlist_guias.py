@@ -187,7 +187,7 @@ if uploaded_xlsx and uploaded_csv:
             df_merged = empresas
 
         # --- Columnas finales / limpieza ---
-        df_final = df_merged.drop(columns=['nombreapellidos', 'locate_cp', 'cp'], errors='ignore')
+        df_final = df_merged.drop(columns=['nombreapellidos', 'locate_cp', 'cp','locate_pais'], errors='ignore')
 
         # --- Vista previa ---
         st.subheader("3. Vista previa del resultado")
@@ -204,3 +204,4 @@ if uploaded_xlsx and uploaded_csv:
             file_name="resultado_guias_azerca.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
+
