@@ -70,10 +70,13 @@ if uploaded_xlsx and uploaded_csv:
         else:
             st.warning("⚠️ No se encontró la columna 'id'. Se continuará sin prefijo.")
 
-        # --- Borrar locate_cp si el país no es Spain ---
+        # --- Borrar contenido de locate_cp si el país no es Spain ---
         if 'locate_pais' in empresas.columns and 'locate_cp' in empresas.columns:
-            mask = empresas['locate_pais'].astype(str).str.strip().str.lower() != 'spain'
-            empresas.loc[mask, 'locate_cp'] = pd.NA
+            empresas.loc[
+                empresas['locate_pais'].astype(str).str.strip().str.lower() != 'spain',
+                'locate_cp'
+            ] = pd.NA
+
 
         # --- Columnas mínimas esperadas tras renombrar ---
         # Nota: 'telefono' ya puede venir de 'phone' o 'teléfono'
@@ -164,3 +167,4 @@ if uploaded_xlsx and uploaded_csv:
             file_name="resultado_guias_azerca.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
+
