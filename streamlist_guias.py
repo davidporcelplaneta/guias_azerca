@@ -1,8 +1,8 @@
 import streamlit as st
 import pandas as pd
-import os
 from datetime import datetime
 from io import BytesIO
+import re
 
 # --- Configuración de la página ---
 st.set_page_config(page_title="Filtrado de Leads", layout="centered")
@@ -15,6 +15,25 @@ st.subheader("1. Sube los archivos necesarios")
 uploaded_xlsx = st.file_uploader("📂 Sube el archivo Excel con los leads", type="xlsx")
 uploaded_csv = st.file_uploader("📂 Sube el archivo CSV de códigos postales", type="csv")
 
+# ----------------- Helpers -----------------
+def normaliza_telefono(val):
+    """Deja solo dígitos y quita ceros a la izquierda (salvo que se quede vacío)."""
+    if pd.isna(val):
+        return pd.NA
+    digits = re.sub(r"\D+", "", str(val))
+    return digits if digits else pd.NA
+
+def deduplicar_por(df, key_col, date_col):
+    """Conserva el registro más reciente por key_col según date_col."""
+    # Asegurar datetime
+    df[date_col] = pd.to_datetime(df[date_col], errors='coerce', format='%d/%m/%Y %H:%M')
+    # Ordenar por fecha descendente y quedarnos con el primero por clave
+    df = df.sort_values(by=[key_col, date_col], ascending=[True, False])
+    df = df.drop_duplicates(subset=[key_col], keep='first')
+    return df
+
+# ---------------------------------------------------------
+
 # Continuar si ambos archivos están cargados
 if uploaded_xlsx and uploaded_csv:
     # Leer archivos
@@ -25,13 +44,18 @@ if uploaded_xlsx and uploaded_csv:
     st.subheader("2. Selecciona la fecha desde la cual conservar los datos")
     fecha_inicio = st.date_input("🗓️ Fecha desde la que filtrar", format="DD/MM/YYYY")
 
-    if st.button("Aplicar filtrado y procesar"):
-        # Formatear y convertir fecha
+    # --- Controles de deduplicación ---
+    st.subheader("2.b Deduplicación")
+    dedupe_key = st.selectbox("Campo para deduplicar", ["telefono", "email"])
+    drop_null_keys = st.checkbox("Eliminar filas sin valor en el campo elegido", value=True)
+
+    if st.button("Aplicar filtrado, deduplicar y procesar"):
+        # --- Fechas ---
         empresas['fecha'] = pd.to_datetime(empresas['fecha'], errors='coerce')
         empresas['fecha'] = empresas['fecha'].dt.strftime('%d/%m/%Y %H:%M')
         empresas['fecha_dt'] = pd.to_datetime(empresas['fecha'], format='%d/%m/%Y %H:%M')
 
-        # Filtrar por rango de fechas
+        # --- Filtrar por rango de fechas ---
         fecha_filtro = datetime.combine(fecha_inicio, datetime.min.time())
         hoy = datetime.now()
 
@@ -43,7 +67,7 @@ if uploaded_xlsx and uploaded_csv:
         filas_eliminadas = filas_antes - filas_despues
 
         st.success(
-            f"✅ Filtrado completado.\n\n"
+            f"✅ Filtrado por fecha completado.\n\n"
             f"Conservadas: {filas_despues} filas.\n"
             f"Eliminadas: {filas_eliminadas}."
         )
@@ -54,19 +78,33 @@ if uploaded_xlsx and uploaded_csv:
             'utm_campaign', 'nombre_webinar', 'nombre_curso',
             'locate_ciudad', 'locate_cp'
         ]
-        empresas = empresas[selected_columns]
+        # Mantener solo columnas disponibles
+        selected_columns = [c for c in selected_columns if c in empresas.columns]
+        empresas = empresas[selected_columns].copy()
 
-        # 👇 Añadir prefijo a la columna 'id'
+        # Prefijo a 'id'
         empresas['id'] = 'azercaguias-' + empresas['id'].astype(str)
 
-        # Filtrar registros inválidos
-        empresas = empresas[empresas['nombre_curso'] != 'Ninguno'].copy()
-        empresas.drop(columns=['nombre_curso'], inplace=True)
+        # --- Borrar contenido de locate_cp si el país no es Spain ---
+        if 'locate_pais' in empresas.columns and 'locate_cp' in empresas.columns:
+            empresas.loc[
+                empresas['locate_pais'].astype(str).str.strip().str.lower() != 'spain',
+                'locate_cp'
+            ] = pd.NA
 
-        # CP y nombres
-        empresas['cp'] = empresas['locate_cp'].astype(str).str.zfill(5)
-        empresas['name'] = empresas['name'].astype(str)
-        empresas['surname'] = empresas['surname'].astype(str)
+        # Filtrar registros inválidos
+        if 'nombre_curso' in empresas.columns:
+            empresas = empresas[empresas['nombre_curso'] != 'Ninguno'].copy()
+            empresas.drop(columns=['nombre_curso'], inplace=True, errors='ignore')
+
+        # Normalizar CP y nombres
+        if 'locate_cp' in empresas.columns:
+            empresas['cp'] = empresas['locate_cp'].astype(str).str.zfill(5)
+        else:
+            empresas['cp'] = pd.NA
+
+        empresas['name'] = empresas.get('name', pd.Series(dtype='object')).astype(str)
+        empresas['surname'] = empresas.get('surname', pd.Series(dtype='object')).astype(str)
         empresas['nombreapellidos'] = empresas['name'] + ' ' + empresas['surname']
 
         # Añadir columnas fijas
@@ -75,34 +113,61 @@ if uploaded_xlsx and uploaded_csv:
         empresas['marca'] = 'EAE'
         empresas['subcanal'] = 'Empresas'
 
-        # Renombrar columnas
+        # Renombrados y estandarización de columnas
+        # - Si existe 'teléfono' (con tilde) o 'phone', crear 'telefono'
+        if 'teléfono' in empresas.columns and 'telefono' not in empresas.columns:
+            empresas = empresas.rename(columns={'teléfono': 'telefono'})
+        if 'telefono' not in empresas.columns and 'phone' in empresas.columns:
+            empresas['telefono'] = empresas['phone']
+        # Población: tomar locate_ciudad o localte_ciudad si existiera
+        if 'localte_ciudad' in empresas.columns and 'locate_ciudad' not in empresas.columns:
+            empresas = empresas.rename(columns={'localte_ciudad': 'locate_ciudad'})
+
         empresas = empresas.rename(columns={
-            'teléfono': 'telefono',
-            'email': 'email',
             'fecha': 'fecha_captacion',
             'utm_campaign': 'origen_dato',
             'nombre_webinar': 'nombre_guia_master',
-            'localte_ciudad': 'poblacion'
+            'locate_ciudad': 'poblacion'
         })
 
-        # Normalización de CP
-        df_merged = pd.merge(
-            empresas,
-            df_cp[['plvd_name']],
-            left_on='cp',
-            right_on='plvd_name',
-            how='left',
-            indicator=True
-        )
+        # --- Normalización de teléfono si se deduplica por teléfono ---
+        if dedupe_key == 'telefono':
+            empresas['telefono'] = empresas['telefono'].map(normaliza_telefono)
 
-        df_merged['cp_normalizado'] = df_merged.apply(
-            lambda row: row['cp'] if row['_merge'] == 'both'
-            else f"{str(row['cp'])[:2]}000",
-            axis=1
-        )
+        # --- Opcional: eliminar filas sin clave ---
+        if drop_null_keys:
+            empresas = empresas[empresas[dedupe_key].notna() & (empresas[dedupe_key].astype(str).str.len() > 0)].copy()
 
-        df_merged = df_merged.drop(columns=['plvd_name', '_merge'])
-        df_final = df_merged.drop(columns=['nombreapellidos', 'locate_cp', 'cp'])
+        # --- Deduplicación (conservar el más reciente por fecha_captacion) ---
+        empresas = deduplicar_por(empresas, key_col=dedupe_key, date_col='fecha_captacion')
+
+        # --- Normalización de CP con tabla de referencia ---
+        if 'plvd_name' in df_cp.columns:
+            df_merged = pd.merge(
+                empresas,
+                df_cp[['plvd_name']],
+                left_on='cp',
+                right_on='plvd_name',
+                how='left',
+                indicator=True
+            )
+
+            df_merged['cp_normalizado'] = df_merged.apply(
+                lambda row: row['cp'] if row['_merge'] == 'both'
+                else f"{str(row['cp'])[:2]}000" if pd.notna(row['cp']) else pd.NA,
+                axis=1
+            )
+
+            df_merged = df_merged.drop(columns=['plvd_name', '_merge'])
+        else:
+            # Si el CSV no tiene plvd_name, aplicar regla por defecto
+            empresas['cp_normalizado'] = empresas['cp'].apply(
+                lambda x: x if pd.isna(x) else f"{str(x)[:2]}000"
+            )
+            df_merged = empresas
+
+        # --- Columnas finales / limpieza ---
+        df_final = df_merged.drop(columns=['nombreapellidos', 'locate_cp', 'cp'], errors='ignore')
 
         # --- Vista previa ---
         st.subheader("3. Vista previa del resultado")
@@ -114,7 +179,7 @@ if uploaded_xlsx and uploaded_csv:
         output.seek(0)
 
         st.download_button(
-            label="📥 Descargar Excel procesado",
+            label=f"📥 Descargar Excel procesado (dedupe por {dedupe_key})",
             data=output,
             file_name="resultado_guias_azerca.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
