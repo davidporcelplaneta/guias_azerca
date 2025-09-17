@@ -167,7 +167,7 @@ if uploaded_xlsx and uploaded_csv:
             if empresas.shape[0] > 0:
                 empresas = deduplicar_por(empresas, key_col='email', date_col='fecha_captacion')
         elim_mail_post = empresas.shape[0]
-        s#t.info(f"✉️ Paso 2 (email): filas tras el paso = {elim_mail_post} (eliminadas en el paso: {elim_mail_prev - elim_mail_post}).")
+        #st.info(f"✉️ Paso 2 (email): filas tras el paso = {elim_mail_post} (eliminadas en el paso: {elim_mail_prev - elim_mail_post}).")
 
         # --- Normalización de CP con tabla de referencia ---
         if 'plvd_name' in df_cp.columns:
@@ -211,6 +211,7 @@ if uploaded_xlsx and uploaded_csv:
             file_name="resultado_guias_azerca.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
+
 
 
 
