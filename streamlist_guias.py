@@ -92,6 +92,13 @@ if uploaded_xlsx and uploaded_csv:
         # Prefijo a 'id'
         empresas['id'] = 'azercaguias-' + empresas['id'].astype(str)
 
+        # --- Rellenar con 0 a la izquierda si el CP tiene 4 dígitos ---
+        if 'locate_cp' in empresas.columns:
+            empresas['locate_cp'] = empresas['locate_cp'].astype(str).str.strip()
+            empresas['locate_cp'] = empresas['locate_cp'].apply(
+                lambda x: x.zfill(5) if x.isdigit() and len(x) == 4 else x
+            )
+
         # --- Borrar contenido de locate_cp si el país no es Spain ---
         if 'locate_pais' in empresas.columns and 'locate_cp' in empresas.columns:
             empresas.loc[
@@ -204,4 +211,5 @@ if uploaded_xlsx and uploaded_csv:
             file_name="resultado_guias_azerca.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
+
 
